@@ -26,13 +26,48 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const categoryCollection = client.db("MediEaseDB").collection("category");
+    const medicineCollection = client.db("MediEaseDB").collection("medicine");
+    const userCollection = client.db("MediEaseDB").collection("users");
+    const cartCollection = client.db("MediEaseDB").collection("carts");
+    // const categoryCollection = client.db("MediEaseDB").collection("category");
 
-    app.get('/category', async(req, res) => {
-        const result = await categoryCollection.find().toArray();
-        res.send(result);
+    // all medicine in shop tab
+    app.get('/medicine', async (req, res) => {
+      const result = await medicineCollection.find().toArray();
+      res.send(result);
     })
 
+    // users related api
+    app.get('/users', async(req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post ('/users', async(req, res) => {
+      const user = req.body;
+      // insert email if user doesn't exist(many ways: 1. email unique, 2. upsert , 3. simple checking)
+      const query = {email: user.email};
+      const existingUser = await userCollection.findOne(query);
+      if(existingUser){
+        return res.send({message: 'User already exist', insertedId: null})
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
+
+    // carts collection api
+    app.get('/carts', async(req, res) => {
+      const email = req.query.email;
+      const query = {email: email}
+      const result = await cartCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    app.post('/carts', async(req, res) => {
+      const cartMedicine = req.body;
+      const result = await cartCollection.insertOne(cartMedicine);
+      res.send(result);
+    })
 
 
     // Send a ping to confirm a successful connection
