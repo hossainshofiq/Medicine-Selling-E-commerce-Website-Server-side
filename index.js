@@ -27,10 +27,10 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const medicineCollection = client.db("MediEaseDB").collection("medicine");
     const userCollection = client.db("MediEaseDB").collection("users");
+    const medicineCollection = client.db("MediEaseDB").collection("medicines");
+    const categoryCollection = client.db("MediEaseDB").collection("categories");
     const cartCollection = client.db("MediEaseDB").collection("carts");
-    // const categoryCollection = client.db("MediEaseDB").collection("category");
 
     // jwt related api
     app.post('/jwt', async (req, res) => {
@@ -68,13 +68,19 @@ async function run() {
     }
 
     // all medicine in shop tab
-    app.get('/medicine', async (req, res) => {
+    app.get('/medicines', async (req, res) => {
       const result = await medicineCollection.find().toArray();
       res.send(result);
     })
 
+    // category medicine in home page
+    app.get('/categories', async (req, res) => {
+      const result = await categoryCollection.find().toArray();
+      res.send(result);
+    })
+
     // users related api
-    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+    app.get('/users', async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     })
@@ -88,7 +94,7 @@ async function run() {
       const user = await userCollection.findOne(query);
       let admin = false;
       if (user) {
-        admin = user.role === 'admin';
+        admin = user?.role === 'admin';
       }
       res.send({ admin });
     })
@@ -105,16 +111,16 @@ async function run() {
       res.send(result);
     })
 
-    // (user delete) not in requirements
-    app.delete('/users/:id',verifyToken, verifyAdmin, async (req, res) => {
+    // (user delete) not in requirements (verifyAdmin)
+    app.delete('/users/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
       res.send(result)
     })
 
-    // make admin
-    app.patch('/users/admin/:id',verifyToken, verifyAdmin, async (req, res) => {
+    // make admin (verifyAdmin)
+    app.patch('/users/admin/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -126,31 +132,22 @@ async function run() {
       res.send(result);
     })
 
-    // make seller
-    // app.patch('/users/seller/:id', async (req, res) => {
-    //   const id = req.params.id;
-    //   const filter = { _id: new ObjectId(id) };
-    //   const updatedDoc = {
-    //     $set: {
-    //       role: 'seller'
-    //     }
-    //   }
-    //   const result = await userCollection.updateOne(filter, updatedDoc);
-    //   res.send(result);
-    // })
+    //   app.patch('/users/role/:id', verifyToken, verifyAdmin, async (req, res) => {
+    //     const id = req.params.id;
+    //     const { role } = req.body; // Extract role from request body
 
-    // make user
-    // app.patch('/users/user/:id', async (req, res) => {
-    //   const id = req.params.id;
-    //   const filter = { _id: new ObjectId(id) };
-    //   const updatedDoc = {
-    //     $set: {
-    //       role: 'user'
+    //     if (!['admin', 'seller', 'user'].includes(role)) {
+    //         return res.status(400).send({ error: 'Invalid role. Allowed roles are admin and seller.' });
     //     }
-    //   }
-    //   const result = await userCollection.updateOne(filter, updatedDoc);
-    //   res.send(result);
-    // })
+
+    //     const filter = { _id: new ObjectId(id) };
+    //     const updatedDoc = {
+    //         $set: { role: role }
+    //     };
+
+    //     const result = await userCollection.updateOne(filter, updatedDoc);
+    //     res.send(result);
+    // });
 
     // carts collection api
     app.get('/carts', async (req, res) => {
@@ -171,6 +168,14 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await cartCollection.deleteOne(query);
       res.send(result);
+    })
+
+    // clear all cart by logged user
+    app.delete('/carts/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email }
+      const result = await cartCollection.deleteMany(query);
+      res.send(result)
     })
 
     // Todo: delete all carts medicine
@@ -199,8 +204,6 @@ async function run() {
   }
 }
 run().catch(console.dir);
-
-
 
 app.get('/', (req, res) => {
   res.send('MediEase is waiting for you')
