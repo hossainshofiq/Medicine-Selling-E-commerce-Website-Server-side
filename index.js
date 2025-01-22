@@ -67,6 +67,18 @@ async function run() {
       next();
     }
 
+    // verifySeller after verifyToken
+    // const verifySeller = async (req, res, next) => {
+    //   const email = req.decoded.email;
+    //   const query = { email: email };
+    //   const user = await userCollection.findOne(query);
+    //   const isSeller = user?.role == 'seller';
+    //   if (!isSeller) {
+    //     return res.status(403).send({ message: 'forbidden access' });
+    //   }
+    //   next();
+    // }
+
     // all medicine in shop tab
     app.get('/medicines', async (req, res) => {
       const result = await medicineCollection.find().toArray();
@@ -85,8 +97,10 @@ async function run() {
       res.send(result);
     })
 
+    // check isAdmin api
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
+
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: 'forbidden access' });
       }
@@ -97,6 +111,24 @@ async function run() {
         admin = user?.role === 'admin';
       }
       res.send({ admin });
+    })
+
+    // check isSeller api
+    app.get('/users/seller/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let seller = false;
+
+      if (user) {
+        seller = user?.role == 'seller';
+      }
+      res.send({ seller })
     })
 
     app.post('/users', async (req, res) => {
@@ -132,6 +164,33 @@ async function run() {
       res.send(result);
     })
 
+    // make seller (verifySeller)
+    app.patch('/users/seller/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: 'seller'
+        }
+      }
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
+
+    // make user (verifyUser)
+    app.patch('/users/user/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: 'user'
+        }
+      }
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
+
+    // role update api
     //   app.patch('/users/role/:id', verifyToken, verifyAdmin, async (req, res) => {
     //     const id = req.params.id;
     //     const { role } = req.body; // Extract role from request body
@@ -148,6 +207,37 @@ async function run() {
     //     const result = await userCollection.updateOne(filter, updatedDoc);
     //     res.send(result);
     // });
+
+
+    // app.patch('/users/role/:id', verifyToken, async (req, res) => {
+    //   try {
+    //     const id = req.params.id;
+    //     const { role } = req.body; // Extract the role from the request body
+
+    //     if (!role || !['admin', 'seller', 'user'].includes(role)) {
+    //       return res.status(400).send({ error: 'Invalid role specified.' });
+    //     }
+
+    //     const filter = { _id: new ObjectId(id) };
+    //     const updatedDoc = {
+    //       $set: {
+    //         role: role
+    //       }
+    //     };
+
+    //     const result = await userCollection.updateOne(filter, updatedDoc);
+
+    //     if (result.modifiedCount === 0) {
+    //       return res.status(404).send({ error: 'User not found or role unchanged.' });
+    //     }
+
+    //     res.send({ message: 'Role updated successfully.', result });
+    //   } catch (error) {
+    //     console.error('Error updating role:', error);
+    //     res.status(500).send({ error: 'Internal Server Error' });
+    //   }
+    // });
+
 
     // carts collection api
     app.get('/carts', async (req, res) => {
