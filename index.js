@@ -79,17 +79,68 @@ async function run() {
     //   next();
     // }
 
-    // all medicine in shop tab
+    // all medicine api (in shop tab)
     app.get('/medicines', async (req, res) => {
       const result = await medicineCollection.find().toArray();
       res.send(result);
     })
+
+    // insert medicines in database
+    app.post('/medicines', async (req, res) => {
+      const medicine = req.body;
+      const result = await medicineCollection.insertOne(medicine);
+      res.send(result);
+    })
+
+
 
     // category medicine in home page
     app.get('/categories', async (req, res) => {
       const result = await categoryCollection.find().toArray();
       res.send(result);
     })
+
+    // get specific category api
+    app.get('/categories/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await categoryCollection.findOne(query);
+      res.send(result);
+    })
+
+    // update specific category api
+    app.patch('/categories/:id', async (req, res) => {
+      const specificCategory = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: {
+          category: specificCategory.category,
+          image: specificCategory.image
+        }
+      }
+
+      const result = await categoryCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
+
+    // insert category in database
+    app.post('/categories', async (req, res) => {
+      const category = req.body;
+      const result = await categoryCollection.insertOne(category);
+      res.send(result);
+    })
+
+    // delete specific category api
+    app.delete('/categories/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await categoryCollection.deleteOne(query);
+      res.send(result);
+    })
+
+
 
     // users related api
     app.get('/users', async (req, res) => {
@@ -131,6 +182,8 @@ async function run() {
       res.send({ seller })
     })
 
+
+    // insert user in database
     app.post('/users', async (req, res) => {
       const user = req.body;
       // insert email if user doesn't exist(many ways: 1. email unique, 2. upsert , 3. simple checking)
@@ -247,12 +300,14 @@ async function run() {
       res.send(result);
     })
 
+    // insert cart product in database
     app.post('/carts', async (req, res) => {
       const cartMedicine = req.body;
       const result = await cartCollection.insertOne(cartMedicine);
       res.send(result);
     })
 
+    // delete cart medicine api
     app.delete('/carts/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
