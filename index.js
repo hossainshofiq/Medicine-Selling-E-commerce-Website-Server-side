@@ -33,6 +33,7 @@ async function run() {
     const categoryCollection = client.db("MediEaseDB").collection("categories");
     const cartCollection = client.db("MediEaseDB").collection("carts");
     const paymentCollection = client.db("MediEaseDB").collection("payments");
+    const advertisementCollection = client.db("MediEaseDB").collection("advertisements");
 
     // jwt related api
     app.post('/jwt', async (req, res) => {
@@ -81,6 +82,28 @@ async function run() {
     //   next();
     // }
 
+    // advertise api
+    app.get('/advertisements', async (req, res) => {
+      const result = await advertisementCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post('/advertisements', async (req, res) => {
+      const advertise = req.body;
+      const result = await advertisementCollection.insertOne(advertise);
+      res.send(result);
+    })
+
+    app.patch('/advertisements/:id', async (req, res) => {
+      const id = req.params.id;
+      const updateAd = req.body;
+      const result = await advertisementCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateAd }
+      );
+      res.send(result);
+    })
+
     // all medicine api (in shop tab)
     app.get('/medicines', async (req, res) => {
       const result = await medicineCollection.find().toArray();
@@ -93,8 +116,6 @@ async function run() {
       const result = await medicineCollection.insertOne(medicine);
       res.send(result);
     })
-
-
 
     // category medicine in home page
     app.get('/categories', async (req, res) => {
@@ -142,8 +163,6 @@ async function run() {
       res.send(result);
     })
 
-
-
     // users related api
     app.get('/users', async (req, res) => {
       const result = await userCollection.find().toArray();
@@ -157,6 +176,7 @@ async function run() {
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: 'forbidden access' });
       }
+
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
@@ -181,6 +201,7 @@ async function run() {
       if (user) {
         seller = user?.role == 'seller';
       }
+
       res.send({ seller })
     })
 
@@ -188,12 +209,13 @@ async function run() {
     // insert user in database
     app.post('/users', async (req, res) => {
       const user = req.body;
-      // insert email if user doesn't exist(many ways: 1. email unique, 2. upsert , 3. simple checking)
       const query = { email: user.email };
       const existingUser = await userCollection.findOne(query);
+
       if (existingUser) {
         return res.send({ message: 'User already exist', insertedId: null })
       }
+
       const result = await userCollection.insertOne(user);
       res.send(result);
     })
@@ -245,55 +267,6 @@ async function run() {
       res.send(result);
     })
 
-    // role update api
-    //   app.patch('/users/role/:id', verifyToken, verifyAdmin, async (req, res) => {
-    //     const id = req.params.id;
-    //     const { role } = req.body; // Extract role from request body
-
-    //     if (!['admin', 'seller', 'user'].includes(role)) {
-    //         return res.status(400).send({ error: 'Invalid role. Allowed roles are admin and seller.' });
-    //     }
-
-    //     const filter = { _id: new ObjectId(id) };
-    //     const updatedDoc = {
-    //         $set: { role: role }
-    //     };
-
-    //     const result = await userCollection.updateOne(filter, updatedDoc);
-    //     res.send(result);
-    // });
-
-
-    // app.patch('/users/role/:id', verifyToken, async (req, res) => {
-    //   try {
-    //     const id = req.params.id;
-    //     const { role } = req.body; // Extract the role from the request body
-
-    //     if (!role || !['admin', 'seller', 'user'].includes(role)) {
-    //       return res.status(400).send({ error: 'Invalid role specified.' });
-    //     }
-
-    //     const filter = { _id: new ObjectId(id) };
-    //     const updatedDoc = {
-    //       $set: {
-    //         role: role
-    //       }
-    //     };
-
-    //     const result = await userCollection.updateOne(filter, updatedDoc);
-
-    //     if (result.modifiedCount === 0) {
-    //       return res.status(404).send({ error: 'User not found or role unchanged.' });
-    //     }
-
-    //     res.send({ message: 'Role updated successfully.', result });
-    //   } catch (error) {
-    //     console.error('Error updating role:', error);
-    //     res.status(500).send({ error: 'Internal Server Error' });
-    //   }
-    // });
-
-
     // carts collection api
     app.get('/carts', async (req, res) => {
       const email = req.query.email;
@@ -324,6 +297,13 @@ async function run() {
       const result = await cartCollection.deleteMany(query);
       res.send(result)
     })
+
+    // Todo: delete all carts medicine (btn clear Cart)
+    // app.delete('/carts/:email', async (req, res) => {
+    //   const query = {email: req.params.email}
+    //   const result = await cartCollection.find(query).deleteMany({});
+    //   res.send(result);
+    // })
 
     // payment intent
     app.post('/create-payment-intent', async (req, res) => {
@@ -374,24 +354,75 @@ async function run() {
       }
       const deleteResult = await cartCollection.deleteMany(query);
       res.send({ paymentResult, deleteResult });
-
     })
 
-    // Todo: delete all carts medicine
+    // seller or admin homepage (stats) verifyAdmin
+    app.get('/seller-stats', async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const medicineItems = await medicineCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+      // const email = await userCollection.find().toArray();
 
-    // app.delete('/carts/:email', async (req, res) => {
-    //   const query = {email: req.params.email}
-    //   const result = await cartCollection.find(query).deleteMany({});
-    //   res.send(result);
-    // })
+      const result = await paymentCollection.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: "$price"
+            },
+          },
+        }
+      ]).toArray();
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
 
-    // app.delete('/carts', async (req, res) => {
-    //   const email = req.query.email;
-    //   const query = { email: email };
-    //   const result = await cartCollection.find(query).deleteMany({});
-    //   res.send(result);
-    // })
+      const pendingResult = await paymentCollection.aggregate([
+        {
+          $match: { status: "pending" }
+        },
+        {
+          $count: "totalPending"
+        }
+      ]).toArray();
+      const status = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
 
+      res.send({
+        users,
+        medicineItems,
+        orders,
+        revenue,
+        status
+        // email
+      })
+    })
+
+    app.get('/admin-stats', async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const medicineItems = await medicineCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+      // const email = await userCollection.find().toArray();
+
+      // const payments = await paymentCollection.find().toArray();
+      // const revenue = payments.reduce((total, payment) => total + payment.price, 0)
+
+      const result = await paymentCollection.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: "$price"
+            }
+          }
+        }
+      ]).toArray();
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+      res.send({
+        users,
+        medicineItems,
+        orders,
+        revenue
+        // email
+      })
+    })
 
 
     // Send a ping to confirm a successful connection
