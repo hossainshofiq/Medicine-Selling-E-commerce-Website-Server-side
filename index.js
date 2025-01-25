@@ -83,7 +83,7 @@ async function run() {
     // }
 
     // advertise api
-    app.get('/advertisements', async (req, res) => {
+    app.get('/advertisements', verifyToken, async (req, res) => {
       const result = await advertisementCollection.find().toArray();
       res.send(result);
     })
@@ -116,6 +116,29 @@ async function run() {
       const result = await medicineCollection.insertOne(medicine);
       res.send(result);
     })
+
+    // discount medicine api
+    app.get('/discounted_medicines', async (req, res) => {
+      const result = await medicineCollection.aggregate([
+        {
+          $match: {
+            discount_percentage: { $gt: 0 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            name: 1,
+            discounted_medicines: 1,
+            discount_percentage: 1,
+            image: 1,
+          },
+        },
+      ]).toArray();
+
+      res.send(result);
+    });
+
 
     // category medicine in home page
     app.get('/categories', async (req, res) => {
@@ -298,13 +321,6 @@ async function run() {
       res.send(result)
     })
 
-    // Todo: delete all carts medicine (btn clear Cart)
-    // app.delete('/carts/:email', async (req, res) => {
-    //   const query = {email: req.params.email}
-    //   const result = await cartCollection.find(query).deleteMany({});
-    //   res.send(result);
-    // })
-
     // payment intent
     app.post('/create-payment-intent', async (req, res) => {
       const { price } = req.body;
@@ -323,6 +339,11 @@ async function run() {
     })
 
     // payment related api
+    app.get('/payments', async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    })
+
     app.get('/payments/:email', verifyToken, async (req, res) => {
       const query = { email: req.params.email };
       const result = await paymentCollection.find(query).toArray();
@@ -337,7 +358,7 @@ async function run() {
     app.get('/payments/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await paymentCollection.findOne(query);
+      const result = await paymentCollection.findOne(query, getInvoice);
       res.send(result);
     })
 
@@ -356,12 +377,22 @@ async function run() {
       res.send({ paymentResult, deleteResult });
     })
 
-    // seller or admin homepage (stats) verifyAdmin
+    // update payment status
+    app.patch('/payments/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedStatus = {
+        $set: {
+          status: 'paid'
+        }
+      }
+      const result = await paymentCollection.updateOne(filter, updatedStatus);
+      res.send(result);
+    })
+
+
+    // seller homepage (stats) verifyAdmin
     app.get('/seller-stats', async (req, res) => {
-      const users = await userCollection.estimatedDocumentCount();
-      const medicineItems = await medicineCollection.estimatedDocumentCount();
-      const orders = await paymentCollection.estimatedDocumentCount();
-      // const email = await userCollection.find().toArray();
 
       const result = await paymentCollection.aggregate([
         {
@@ -383,27 +414,26 @@ async function run() {
           $count: "totalPending"
         }
       ]).toArray();
-      const status = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
+      const pendingStatus = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
+
+      const paidResult = await paymentCollection.aggregate([
+        {
+          $match: { status: "paid" }
+        },
+        {
+          $count: "totalPaid"
+        }
+      ]).toArray();
+      const paidStatus = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
 
       res.send({
-        users,
-        medicineItems,
-        orders,
         revenue,
-        status
-        // email
+        pendingStatus,
+        paidStatus
       })
     })
-
+    // admin homepage (stats) verifyAdmin
     app.get('/admin-stats', async (req, res) => {
-      const users = await userCollection.estimatedDocumentCount();
-      const medicineItems = await medicineCollection.estimatedDocumentCount();
-      const orders = await paymentCollection.estimatedDocumentCount();
-      // const email = await userCollection.find().toArray();
-
-      // const payments = await paymentCollection.find().toArray();
-      // const revenue = payments.reduce((total, payment) => total + payment.price, 0)
-
       const result = await paymentCollection.aggregate([
         {
           $group: {
@@ -415,12 +445,31 @@ async function run() {
         }
       ]).toArray();
       const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+      const pendingResult = await paymentCollection.aggregate([
+        {
+          $match: { status: "pending" }
+        },
+        {
+          $count: "totalPending"
+        }
+      ]).toArray();
+      const pendingStatus = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
+
+      const paidResult = await paymentCollection.aggregate([
+        {
+          $match: { status: "paid" }
+        },
+        {
+          $count: "totalPaid"
+        }
+      ]).toArray();
+      const paidStatus = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
+
       res.send({
-        users,
-        medicineItems,
-        orders,
-        revenue
-        // email
+        revenue,
+        pendingStatus,
+        paidStatus
       })
     })
 
