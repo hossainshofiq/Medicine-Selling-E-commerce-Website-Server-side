@@ -35,6 +35,40 @@ async function run() {
     const paymentCollection = client.db("MediEaseDB").collection("payments");
     const advertisementCollection = client.db("MediEaseDB").collection("advertisements");
 
+    // sales reports
+    app.get("/sellsInfo", async (req, res) => {
+      
+      // const salesDataMedicine = await medicineCollection.aggregate([
+      //   {
+      //     $project: {
+      //       sellerEmail: "$seller_email"
+      //     }
+      //   }
+      // ]).toArray();
+
+      const salesData = await paymentCollection.aggregate([
+        {
+          $lookup: {
+            from: "medicines",
+            localField: "medicineItemIds",
+            foreignField: "_id",
+            as: "salesDetails",
+          },
+        },
+        {
+          $unwind: "$salesDetails",
+        },
+        {
+          $project: {
+            buyerEmail: "$email",
+            medicineName: "$salesDetails.name",
+            unit_price: "$salesDetails.unit_price",
+          },
+        },
+      ]).toArray();
+      res.send(salesData)
+    })
+
     // jwt related api
     app.post('/jwt', async (req, res) => {
       const user = req.body;
@@ -82,9 +116,15 @@ async function run() {
     //   next();
     // }
 
-    // advertise api
-    app.get('/advertisements', verifyToken, async (req, res) => {
+    // advertise api(verifyToken)
+    app.get('/advertisements', async (req, res) => {
       const result = await advertisementCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/activeAdvertisements', async (req, res) => {
+      const query = { status: "active" }
+      const result = await advertisementCollection.find(query).toArray();
       res.send(result);
     })
 
@@ -96,11 +136,11 @@ async function run() {
 
     app.patch('/advertisements/:id', async (req, res) => {
       const id = req.params.id;
-      const updateAd = req.body;
-      const result = await advertisementCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: updateAd }
-      );
+      const filter = { _id: new ObjectId(id) };
+      statusActiveDoc = {
+        $set: { status: req?.body?.status }
+      }
+      const result = await advertisementCollection.updateOne(filter, statusActiveDoc);
       res.send(result);
     })
 
