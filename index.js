@@ -1,8 +1,8 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -35,39 +35,6 @@ async function run() {
     const paymentCollection = client.db("MediEaseDB").collection("payments");
     const advertisementCollection = client.db("MediEaseDB").collection("advertisements");
 
-    // sales reports
-    app.get("/sellsInfo", async (req, res) => {
-      
-      // const salesDataMedicine = await medicineCollection.aggregate([
-      //   {
-      //     $project: {
-      //       sellerEmail: "$seller_email"
-      //     }
-      //   }
-      // ]).toArray();
-
-      const salesData = await paymentCollection.aggregate([
-        {
-          $lookup: {
-            from: "medicines",
-            localField: "medicineItemIds",
-            foreignField: "_id",
-            as: "salesDetails",
-          },
-        },
-        {
-          $unwind: "$salesDetails",
-        },
-        {
-          $project: {
-            buyerEmail: "$email",
-            medicineName: "$salesDetails.name",
-            unit_price: "$salesDetails.unit_price",
-          },
-        },
-      ]).toArray();
-      res.send(salesData)
-    })
 
     // jwt related api
     app.post('/jwt', async (req, res) => {
@@ -78,7 +45,7 @@ async function run() {
 
     // verifyToken middleware
     const verifyToken = (req, res, next) => {
-      console.log('inside verify token', req.headers.authorization);
+      // console.log('inside verify token', req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'unauthorized access' });
       }
@@ -105,129 +72,19 @@ async function run() {
     }
 
     // verifySeller after verifyToken
-    // const verifySeller = async (req, res, next) => {
-    //   const email = req.decoded.email;
-    //   const query = { email: email };
-    //   const user = await userCollection.findOne(query);
-    //   const isSeller = user?.role == 'seller';
-    //   if (!isSeller) {
-    //     return res.status(403).send({ message: 'forbidden access' });
-    //   }
-    //   next();
-    // }
-
-    // advertise api(verifyToken)
-    app.get('/advertisements', async (req, res) => {
-      const result = await advertisementCollection.find().toArray();
-      res.send(result);
-    })
-
-    app.get('/activeAdvertisements', async (req, res) => {
-      const query = { status: "active" }
-      const result = await advertisementCollection.find(query).toArray();
-      res.send(result);
-    })
-
-    app.post('/advertisements', async (req, res) => {
-      const advertise = req.body;
-      const result = await advertisementCollection.insertOne(advertise);
-      res.send(result);
-    })
-
-    app.patch('/advertisements/:id', async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      statusActiveDoc = {
-        $set: { status: req?.body?.status }
+    const verifySeller = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isSeller = user?.role == 'seller';
+      if (!isSeller) {
+        return res.status(403).send({ message: 'forbidden access' });
       }
-      const result = await advertisementCollection.updateOne(filter, statusActiveDoc);
-      res.send(result);
-    })
-
-    // all medicine api (in shop tab)
-    app.get('/medicines', async (req, res) => {
-      const result = await medicineCollection.find().toArray();
-      res.send(result);
-    })
-
-    // insert medicines in database
-    app.post('/medicines', async (req, res) => {
-      const medicine = req.body;
-      const result = await medicineCollection.insertOne(medicine);
-      res.send(result);
-    })
-
-    // discount medicine api
-    app.get('/discounted_medicines', async (req, res) => {
-      const result = await medicineCollection.aggregate([
-        {
-          $match: {
-            discount_percentage: { $gt: 0 },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            name: 1,
-            discounted_medicines: 1,
-            discount_percentage: 1,
-            image: 1,
-          },
-        },
-      ]).toArray();
-
-      res.send(result);
-    });
-
-
-    // category medicine in home page
-    app.get('/categories', async (req, res) => {
-      const result = await categoryCollection.find().toArray();
-      res.send(result);
-    })
-
-    // get specific category api
-    app.get('/categories/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await categoryCollection.findOne(query);
-      res.send(result);
-    })
-
-    // update specific category api
-    app.patch('/categories/:id', async (req, res) => {
-      const specificCategory = req.body;
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-
-      const updatedDoc = {
-        $set: {
-          category: specificCategory.category,
-          image: specificCategory.image
-        }
-      }
-
-      const result = await categoryCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    })
-
-    // insert category in database
-    app.post('/categories', async (req, res) => {
-      const category = req.body;
-      const result = await categoryCollection.insertOne(category);
-      res.send(result);
-    })
-
-    // delete specific category api
-    app.delete('/categories/:id', verifyToken, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await categoryCollection.deleteOne(query);
-      res.send(result);
-    })
+      next();
+    }
 
     // users related api
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     })
@@ -284,7 +141,7 @@ async function run() {
     })
 
     // (user delete) not in requirements (verifyAdmin)
-    app.delete('/users/:id', verifyToken, async (req, res) => {
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -292,7 +149,7 @@ async function run() {
     })
 
     // make admin (verifyAdmin)
-    app.patch('/users/admin/:id', verifyToken, async (req, res) => {
+    app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -305,7 +162,7 @@ async function run() {
     })
 
     // make seller (verifySeller)
-    app.patch('/users/seller/:id', verifyToken, async (req, res) => {
+    app.patch('/users/seller/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -318,7 +175,7 @@ async function run() {
     })
 
     // make user (verifyUser)
-    app.patch('/users/user/:id', verifyToken, async (req, res) => {
+    app.patch('/users/user/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -329,6 +186,118 @@ async function run() {
       const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
     })
+
+    // all medicine api (in shop tab)
+    app.get('/medicines', async (req, res) => {
+      const result = await medicineCollection.find().toArray();
+      res.send(result);
+    })
+
+    // insert medicines in database
+    app.post('/medicines', verifyToken, verifySeller, async (req, res) => {
+      const medicine = req.body;
+      const result = await medicineCollection.insertOne(medicine);
+      res.send(result);
+    })
+
+    // advertise api(verifyToken)
+    app.get('/advertisements', async (req, res) => {
+      const result = await advertisementCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/activeAdvertisements', async (req, res) => {
+      const query = { status: "active" }
+      const result = await advertisementCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    app.post('/advertisements', verifyToken, verifySeller, async (req, res) => {
+      const advertise = req.body;
+      const result = await advertisementCollection.insertOne(advertise);
+      res.send(result);
+    })
+
+    app.patch('/advertisements/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      statusActiveDoc = {
+        $set: { status: req?.body?.status }
+      }
+      const result = await advertisementCollection.updateOne(filter, statusActiveDoc);
+      res.send(result);
+    })
+
+    // discount medicine api
+    app.get('/discounted_medicines', async (req, res) => {
+      const result = await medicineCollection.aggregate([
+        {
+          $match: {
+            discount_percentage: { $gt: 0 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            name: 1,
+            discounted_medicines: 1,
+            discount_percentage: 1,
+            image: 1,
+          },
+        },
+      ]).toArray();
+
+      res.send(result);
+    });
+
+
+    // category medicine in home page
+    app.get('/categories', async (req, res) => {
+      const result = await categoryCollection.find().toArray();
+      res.send(result);
+    })
+
+    // get specific category api
+    app.get('/categories/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await categoryCollection.findOne(query);
+      res.send(result);
+    })
+
+    // update specific category api
+    app.patch('/categories/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const specificCategory = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: {
+          category: specificCategory.category,
+          image: specificCategory.image
+        }
+      }
+
+      const result = await categoryCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
+
+    // insert category in database
+    app.post('/categories', verifyToken, verifyAdmin, async (req, res) => {
+      const category = req.body;
+      const result = await categoryCollection.insertOne(category);
+      res.send(result);
+    })
+
+    // delete specific category api
+    app.delete('/categories/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await categoryCollection.deleteOne(query);
+      res.send(result);
+    })
+
+
 
     // carts collection api
     app.get('/carts', async (req, res) => {
@@ -365,7 +334,7 @@ async function run() {
     app.post('/create-payment-intent', async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
-      console.log(amount, 'Amount inside the intent');
+      // console.log(amount, 'Amount inside the intent');
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
@@ -407,7 +376,7 @@ async function run() {
       const payment = req.body;
       const paymentResult = await paymentCollection.insertOne(payment);
 
-      console.log('Payment info', payment);
+      // console.log('Payment info', payment);
       const query = {
         _id: {
           $in: payment.cartIds.map(id => new ObjectId(id))
@@ -418,7 +387,7 @@ async function run() {
     })
 
     // update payment status
-    app.patch('/payments/:id', verifyToken, async (req, res) => {
+    app.patch('/payments/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedStatus = {
@@ -432,7 +401,7 @@ async function run() {
 
 
     // seller homepage (stats) verifyAdmin
-    app.get('/seller-stats', async (req, res) => {
+    app.get('/seller-stats', verifyToken, verifySeller, async (req, res) => {
 
       const result = await paymentCollection.aggregate([
         {
@@ -473,7 +442,7 @@ async function run() {
       })
     })
     // admin homepage (stats) verifyAdmin
-    app.get('/admin-stats', async (req, res) => {
+    app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
           $group: {
@@ -511,6 +480,50 @@ async function run() {
         pendingStatus,
         paidStatus
       })
+    })
+
+    // sales reports
+    app.get("/sellsInfo", verifyToken, verifyAdmin, async (req, res) => {
+      const paymentsData = await paymentCollection.aggregate([
+        {
+          $lookup: {
+            from: "medicines",
+            localField: "medicineItemIds",
+            foreignField: "_id",
+            as: "salesDetails",
+          },
+        },
+        {
+          $unwind: "$salesDetails",
+        },
+        {
+          $project: {
+            _id: 0,
+            buyerEmail: "$email",
+            medicineName: "$salesDetails.name",
+            price: "$price",
+            unit_price: '$unit_price',
+            sellerEmail: "$salesDetails.seller_email",
+          },
+        },
+      ]).toArray();
+      res.send(paymentsData)
+    })
+
+    // category medicines in home page
+    app.get('/category-medicines', async (req, res) => {
+
+      const categoryTablet = await medicineCollection.aggregate([
+        {
+          $match: { category: "Tablet" }
+        },
+        {
+          $count: "totalTablet"
+        }
+      ]).toArray();
+      const totalTablets = categoryTablet.length > 0 ? categoryTablet[0].totalTablet : 0;
+
+      res.send({ totalTablets })
     })
 
 
