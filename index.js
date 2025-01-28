@@ -26,7 +26,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const userCollection = client.db("MediEaseDB").collection("users");
     const medicineCollection = client.db("MediEaseDB").collection("medicines");
@@ -510,26 +510,9 @@ async function run() {
       res.send(paymentsData)
     })
 
-    // category medicines in home page
-    app.get('/category-medicines', async (req, res) => {
-
-      const categoryTablet = await medicineCollection.aggregate([
-        {
-          $match: { category: "Tablet" }
-        },
-        {
-          $count: "totalTablet"
-        }
-      ]).toArray();
-      const totalTablets = categoryTablet.length > 0 ? categoryTablet[0].totalTablet : 0;
-
-      res.send({ totalTablets })
-    })
-
-
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
