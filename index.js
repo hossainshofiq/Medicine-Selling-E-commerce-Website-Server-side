@@ -84,13 +84,13 @@ async function run() {
     }
 
     // users related api (verifyToken, verifyAdmin,)
-    app.get('/users', verifyToken, async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     })
 
     // check isAdmin api (verifyToken,)
-    app.get('/users/admin/:email',verifyToken, async (req, res) => {
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
 
       if (email !== req.decoded.email) {
@@ -141,7 +141,7 @@ async function run() {
     })
 
     // (user delete) not in requirements (verifyToken, verifyAdmin,)
-    app.delete('/users/:id', verifyToken, async (req, res) => {
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -162,7 +162,7 @@ async function run() {
     })
 
     // make seller (verifySeller) (verifyToken, verifyAdmin,)
-    app.patch('/users/seller/:id', verifyToken, async (req, res) => {
+    app.patch('/users/seller/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -175,7 +175,7 @@ async function run() {
     })
 
     // make user (verifyUser) (verifyToken, verifyAdmin,)
-    app.patch('/users/user/:id', verifyToken, async (req, res) => {
+    app.patch('/users/user/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -194,14 +194,14 @@ async function run() {
     })
 
     // insert medicines in database (verifyToken, verifySeller,)
-    app.post('/medicines', verifyToken, async (req, res) => {
+    app.post('/medicines', verifyToken, verifySeller, async (req, res) => {
       const medicine = req.body;
       const result = await medicineCollection.insertOne(medicine);
       res.send(result);
     })
 
     // advertise api(verifyToken)
-    app.get('/advertisements', async (req, res) => {
+    app.get('/advertisements', verifyToken, async (req, res) => {
       const result = await advertisementCollection.find().toArray();
       res.send(result);
     })
@@ -213,14 +213,14 @@ async function run() {
     })
 
     // (verifyToken, verifySeller,)
-    app.post('/advertisements',verifyToken, async (req, res) => {
+    app.post('/advertisements', verifyToken, verifySeller, async (req, res) => {
       const advertise = req.body;
       const result = await advertisementCollection.insertOne(advertise);
       res.send(result);
     })
 
     // verifyToken, verifyAdmin,
-    app.patch('/advertisements/:id', verifyToken, async (req, res) => {
+    app.patch('/advertisements/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       statusActiveDoc = {
@@ -268,7 +268,7 @@ async function run() {
     })
 
     // update specific category api (verifyToken, verifyAdmin,)
-    app.patch('/categories/:id', verifyToken, async (req, res) => {
+    app.patch('/categories/:id', verifyToken, verifyAdmin, async (req, res) => {
       const specificCategory = req.body;
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -285,7 +285,7 @@ async function run() {
     })
 
     // insert category in database (verifyToken, verifyAdmin,)
-    app.post('/categories', verifyToken, async (req, res) => {
+    app.post('/categories', verifyToken, verifyAdmin, async (req, res) => {
       const category = req.body;
       const result = await categoryCollection.insertOne(category);
       res.send(result);
@@ -390,7 +390,7 @@ async function run() {
     })
 
     // update payment status verifyAdmin,
-    app.patch('/payments/:id', verifyToken, async (req, res) => {
+    app.patch('/payments/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedStatus = {
@@ -404,7 +404,7 @@ async function run() {
 
 
     // seller homepage (stats)  (verifyToken, verifySeller,)
-    app.get('/seller-stats', verifyToken, async (req, res) => {
+    app.get('/seller-stats', verifyToken, verifySeller, async (req, res) => {
 
       const result = await paymentCollection.aggregate([
         {
@@ -445,7 +445,7 @@ async function run() {
       })
     })
     // admin homepage (stats) (verifyToken, verifyAdmin,)
-    app.get('/admin-stats', verifyToken, async (req, res) => {
+    app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
           $group: {
@@ -486,7 +486,7 @@ async function run() {
     })
 
     // sales reports  (verifyToken, verifyAdmin,)
-    app.get("/sellsInfo", verifyToken, async (req, res) => {
+    app.get("/sellsInfo", verifyToken, verifyAdmin, async (req, res) => {
       const paymentsData = await paymentCollection.aggregate([
         {
           $lookup: {
@@ -514,7 +514,7 @@ async function run() {
     })
 
     // payment stats  (verifyToken, verifyAdmin,)
-    app.get('/payment-stats', verifyToken, async (req, res) => {
+    app.get('/payment-stats', verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
           $unwind: '$medicineItemIds'
