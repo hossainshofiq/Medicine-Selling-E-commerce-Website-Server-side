@@ -39,7 +39,7 @@ async function run() {
     // jwt related api
     app.post('/jwt', async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '6h' });
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '12h' });
       res.send({ token })
     })
 
@@ -83,14 +83,14 @@ async function run() {
       next();
     }
 
-    // users related api
-    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+    // users related api (verifyToken, verifyAdmin,)
+    app.get('/users', verifyToken, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     })
 
-    // check isAdmin api
-    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+    // check isAdmin api (verifyToken,)
+    app.get('/users/admin/:email',verifyToken, async (req, res) => {
       const email = req.params.email;
 
       if (email !== req.decoded.email) {
@@ -106,7 +106,7 @@ async function run() {
       res.send({ admin });
     })
 
-    // check isSeller api
+    // check isSeller api (verifyToken,)
     app.get('/users/seller/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
 
@@ -140,16 +140,16 @@ async function run() {
       res.send(result);
     })
 
-    // (user delete) not in requirements (verifyAdmin)
-    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // (user delete) not in requirements (verifyToken, verifyAdmin,)
+    app.delete('/users/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
       res.send(result)
     })
 
-    // make admin (verifyAdmin)
-    app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // make admin (verifyAdmin) (verifyToken, verifyAdmin,)
+    app.patch('/users/admin/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -161,8 +161,8 @@ async function run() {
       res.send(result);
     })
 
-    // make seller (verifySeller)
-    app.patch('/users/seller/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // make seller (verifySeller) (verifyToken, verifyAdmin,)
+    app.patch('/users/seller/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -174,8 +174,8 @@ async function run() {
       res.send(result);
     })
 
-    // make user (verifyUser)
-    app.patch('/users/user/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // make user (verifyUser) (verifyToken, verifyAdmin,)
+    app.patch('/users/user/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -193,8 +193,8 @@ async function run() {
       res.send(result);
     })
 
-    // insert medicines in database
-    app.post('/medicines', verifyToken, verifySeller, async (req, res) => {
+    // insert medicines in database (verifyToken, verifySeller,)
+    app.post('/medicines', verifyToken, async (req, res) => {
       const medicine = req.body;
       const result = await medicineCollection.insertOne(medicine);
       res.send(result);
@@ -212,13 +212,15 @@ async function run() {
       res.send(result);
     })
 
-    app.post('/advertisements', verifyToken, verifySeller, async (req, res) => {
+    // (verifyToken, verifySeller,)
+    app.post('/advertisements',verifyToken, async (req, res) => {
       const advertise = req.body;
       const result = await advertisementCollection.insertOne(advertise);
       res.send(result);
     })
 
-    app.patch('/advertisements/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // verifyToken, verifyAdmin,
+    app.patch('/advertisements/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       statusActiveDoc = {
@@ -265,8 +267,8 @@ async function run() {
       res.send(result);
     })
 
-    // update specific category api
-    app.patch('/categories/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // update specific category api (verifyToken, verifyAdmin,)
+    app.patch('/categories/:id', verifyToken, async (req, res) => {
       const specificCategory = req.body;
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -282,15 +284,15 @@ async function run() {
       res.send(result);
     })
 
-    // insert category in database
-    app.post('/categories', verifyToken, verifyAdmin, async (req, res) => {
+    // insert category in database (verifyToken, verifyAdmin,)
+    app.post('/categories', verifyToken, async (req, res) => {
       const category = req.body;
       const result = await categoryCollection.insertOne(category);
       res.send(result);
     })
 
-    // delete specific category api
-    app.delete('/categories/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // delete specific category api (verifyToken, verifyAdmin,) 
+    app.delete('/categories/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await categoryCollection.deleteOne(query);
@@ -353,6 +355,7 @@ async function run() {
       res.send(result);
     })
 
+    // (verifyToken,)
     app.get('/payments/:email', verifyToken, async (req, res) => {
       const query = { email: req.params.email };
       const result = await paymentCollection.find(query).toArray();
@@ -386,8 +389,8 @@ async function run() {
       res.send({ paymentResult, deleteResult });
     })
 
-    // update payment status
-    app.patch('/payments/:id', verifyToken, verifyAdmin, async (req, res) => {
+    // update payment status verifyAdmin,
+    app.patch('/payments/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedStatus = {
@@ -400,8 +403,8 @@ async function run() {
     })
 
 
-    // seller homepage (stats) verifyAdmin
-    app.get('/seller-stats', verifyToken, verifySeller, async (req, res) => {
+    // seller homepage (stats)  (verifyToken, verifySeller,)
+    app.get('/seller-stats', verifyToken, async (req, res) => {
 
       const result = await paymentCollection.aggregate([
         {
@@ -441,8 +444,8 @@ async function run() {
         paidStatus
       })
     })
-    // admin homepage (stats) verifyAdmin
-    app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+    // admin homepage (stats) (verifyToken, verifyAdmin,)
+    app.get('/admin-stats', verifyToken, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
           $group: {
@@ -482,8 +485,8 @@ async function run() {
       })
     })
 
-    // sales reports
-    app.get("/sellsInfo", verifyToken, verifyAdmin, async (req, res) => {
+    // sales reports  (verifyToken, verifyAdmin,)
+    app.get("/sellsInfo", verifyToken, async (req, res) => {
       const paymentsData = await paymentCollection.aggregate([
         {
           $lookup: {
@@ -508,6 +511,41 @@ async function run() {
         },
       ]).toArray();
       res.send(paymentsData)
+    })
+
+    // payment stats  (verifyToken, verifyAdmin,)
+    app.get('/payment-stats', verifyToken, async (req, res) => {
+      const result = await paymentCollection.aggregate([
+        {
+          $unwind: '$medicineItemIds'
+        },
+        {
+          $lookup: {
+            from: 'medicines',
+            localField: 'medicineItemIds',
+            foreignField: '_id',
+            as: 'medicineItems'
+          }
+        },
+        {
+          $unwind: '$medicineItems'
+        },
+        {
+          $group: {
+            _id: '$medicineItems.category',
+            quantity: { $sum: 1 },
+            revenue: { $sum: '$medicineItems.unit_price' }
+          }
+        }, {
+          $project: {
+            _id: 0,
+            category: '$_id',
+            quantity: '$quantity',
+            revenue: '$revenue'
+          }
+        }
+      ]).toArray();
+      res.send(result);
     })
 
     // Send a ping to confirm a successful connection
