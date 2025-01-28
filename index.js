@@ -514,7 +514,7 @@ async function run() {
     })
 
     // payment stats  (verifyToken, verifyAdmin,)
-    app.get('/payment-stats', verifyToken, verifyAdmin, async (req, res) => {
+    app.get('/payment-stats', verifyToken, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
           $unwind: '$medicineItemIds'
