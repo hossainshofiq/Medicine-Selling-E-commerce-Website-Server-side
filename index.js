@@ -26,7 +26,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
 
     const userCollection = client.db("MediEaseDB").collection("users");
     const medicineCollection = client.db("MediEaseDB").collection("medicines");
@@ -486,6 +486,7 @@ async function run() {
     })
 
     // sales reports  (verifyToken, verifyAdmin,)
+
     app.get("/sellsInfo", verifyToken, verifyAdmin, async (req, res) => {
       const paymentsData = await paymentCollection.aggregate([
         {
@@ -513,7 +514,44 @@ async function run() {
       res.send(paymentsData)
     })
 
+    // deployment problem with this api
+    // app.get('/sellsInfo', async (req, res) => {
+    //   const result = await paymentCollection.aggregate([
+    //     {
+    //       $unwind: "$medicineItemIds"
+    //     },
+    //     {
+    //       $lookup: {
+    //         from: "medicines",
+    //         let: { medicineId: { $toObjectId: "$medicineItemIds" } },
+    //         pipeline: [
+    //           {
+    //             $match: {
+    //               $expr: { $eq: ["$_id", "$$medicineId"] }
+    //             }
+    //           }
+    //         ],
+    //         as: "medicineDetails"
+    //       }
+    //     },
+    //     {
+    //       $unwind: "$medicineDetails"
+    //     },
+    //     {
+    //       $project: {
+    //         _id: 0,
+    //         medicine_name: "$medicineDetails.name",
+    //         seller_email: "$medicineDetails.seller_email",
+    //         buyer_email: "$email",
+    //         unit_price: "$medicineDetails.unit_price"
+    //       }
+    //     }
+    //   ]).toArray();
+    //   res.send(result);
+    // });
+
     // payment stats  (verifyToken, verifyAdmin,)
+
     app.get('/payment-stats', verifyToken, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
@@ -548,9 +586,55 @@ async function run() {
       res.send(result);
     })
 
+    // deployment problem with this api
+    // app.get('/payment-stats', async (req, res) => {
+    //   const result = await paymentCollection.aggregate([
+    //     {
+    //       $unwind: "$medicineItemIds"
+    //     },
+    //     {
+    //       $lookup: {
+    //         from: "medicines",
+    //         let: { medicineId: { $toObjectId: "$medicineItemIds" } },
+    //         pipeline: [
+    //           {
+    //             $match: {
+    //               $expr: { $eq: ["$_id", "$$medicineId"] }
+    //             }
+    //           }
+    //         ],
+    //         as: "medicineItems"
+    //       }
+    //     },
+    //     {
+    //       $unwind: "$medicineItems"
+    //     },
+    //     {
+    //       $group: {
+    //         _id: "$medicineItems.category",
+    //         quantity: { $sum: 1 },
+    //         revenue: { $sum: "$medicineItems.unit_price" }
+    //       }
+    //     },
+    //     {
+    //       $project: {
+    //         _id: 0,
+    //         category: "$_id",
+    //         quantity: 1,
+    //         revenue: 1
+    //       }
+    //     }
+    //   ]).toArray();
+
+    //   res.send(result);
+    // });
+
+
+
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
